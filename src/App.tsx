@@ -92,12 +92,13 @@ export class App extends React.Component<AppProps, AppState> {
             />
         }
 
-        return <HomePage 
-        library={this.state.library.data}
-        search={this.state.search}
-        selectedFilter={this.state.selectedFilter}
-        onRefresh={() => this.setState(s => ({...s, library: Pending(getAllBooks)}))}
-        onSearch={() => {}}
+        return <HomePage
+            library={this.state.library.data}
+            search={this.state.search}
+            selectedFilter={this.state.selectedFilter}
+            onRefresh={() => this.setState(s => ({ ...s, library: Pending(getAllBooks) }))}
+            onSearch={() => { }}
+            onBookClick={() => { }}
         />
     }
 }

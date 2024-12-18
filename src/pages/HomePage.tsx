@@ -1,4 +1,6 @@
+import { useNavigate } from "react-router"
 import { BookProps, Library } from "../App"
+import { Book } from "../App"
 
 type HomePageProps = {
     selectedFilter: BookProps
@@ -6,11 +8,12 @@ type HomePageProps = {
     library: Library
     onRefresh: () => void
     onSearch: () => void
-
+    onBookClick: (book: Book) => void;
 }
 
 export const HomePage = (props: HomePageProps) => {
     const { library, search, selectedFilter, onRefresh, onSearch } = props
+    const navigate = useNavigate();
     return <div className="main">
         <h1>Welcome to the library</h1>
         <div className="filters">
@@ -37,6 +40,7 @@ export const HomePage = (props: HomePageProps) => {
                     <li key={book.id}
                         onClick={() => {
                             // TODO: Make link with react router
+                            navigate(`/book/${book.id}`);
                             // URL /book/{id}
                         }}
                     >
