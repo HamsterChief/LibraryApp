@@ -1,10 +1,11 @@
 import React = require("react");
 import '../static/css/site.css'
-import { fromArray } from "./fromArray";
-import { EmptyNode, List } from "./list";
-import { ApiData, Idle } from "./dataLoaders";
+import { ApiData, FullFilled, Idle, Pending, Rejected } from "./dataLoaders";
+import { DataLoader } from "./DataLoader";
+import { BookDetail } from "./pages/BookDetail";
+import { HomePage } from "./pages/HomePage";
 
-type Book = {
+export type Book = {
     id: number
     title: string
     author: string
@@ -12,10 +13,10 @@ type Book = {
     year: number
 }
 
-type BookProps = Exclude<keyof Book, "id"> //type BookProps =  "title" | "author" | "author" | "year"
+export type BookProps = Exclude<keyof Book, "id"> //type BookProps =  "title" | "author" | "author" | "year"
 // See: https://www.typescriptlang.org/docs/handbook/2/keyof-types.html 
 
-type Library = Book[]
+export type Library = Book[]
 
 type Func<a, b> = (_: a) => b
 
@@ -29,10 +30,19 @@ interface AppProps {
 
 }
 
+async function getFetch<T>(url: string): Promise<ApiData<T>> {
+    const response = await fetch(url)
+    if (!response.ok) return Rejected(await response.text())
+    return FullFilled(await response.json())
+}
+
+const getAllBooks = async (): Promise<ApiData<Library>> => getFetch(`/api/Library/GetAll`)
+const getBookById = (book: Book) => async (): Promise<ApiData<Book>> => getFetch(`/api/Library/GetBookById/${book.id}`)
 
 
 interface AppState {
     library: ApiData<Library>
+    book: ApiData<Book>
     search: string | number
     selectedFilter: BookProps
 }
@@ -42,46 +52,52 @@ export class App extends React.Component<AppProps, AppState> {
         super(props)
         this.state = {
             library: Idle(),
+            book: Idle(),
             search: "",
             selectedFilter: "title"
         }
     }
 
-    // filterAction: LibraryFilter = (library: Library) => (bookFilter: BookFilter) => fromArray(library.filter(bookFilter))
+    componentDidMount(): void {
+        this.setState(s => ({ ...s, library: Pending(getAllBooks) }))
+    }
+
+    componentDidUpdate(prevProps: Readonly<AppProps>, prevState: Readonly<AppState>): void {
+        if (prevState.library.kind != 'pending' && this.state.library.kind == 'pending') {
+            this.state.library
+        }
+
+        if (prevState.book.kind != 'pending' && this.state.book.kind == 'pending') {
+            this.state.book.loader().then(data => this.setState(s => ({ ...s, book: data })))
+        }
+    }
+
+    filterAction: LibraryFilter = (library: Library) => (bookFilter: BookFilter) => library.filter(bookFilter)
 
     render(): React.ReactNode {
-        if (this.state.library.kind == 'pending') return <div>Loading...</div>
-        if (this.state.library.kind == 'rejected') return <div>{this.state.library.errorMessage || "Something went wrong..."}</div>
-        if (this.state.library.kind == 'idle') return <div>Nothing to show yet</div>
+        if (this.state.book.kind != 'idle') {
+            return <BookDetail
+                book={this.state.book}
+                onGoBack={() => this.setState(s => ({ ...s, book: Idle() }))}
+                onLoaded={data => this.setState(s => ({ ...s, book: data }))}
+                onRetry={() => { }}
+            />
+        }
 
-        return <div className="main">
-            <h1>Welcome to the library</h1>
-            <div className="filters">
-                <label>Filter on:</label>
-                <select defaultValue={this.state.selectedFilter}>
-                    <option value="title">Title</option>
-                    <option value="author">Author</option>
-                    <option value="genre">Genre</option>
-                    <option value="year">Year</option>
-                </select>
-                <input type="text" name="search" value={this.state.search} placeholder={`Search books on ${this.state.selectedFilter}`} />
-                <button disabled={this.state.search == ""}>Search</button>
-            </div>
+        if (this.state.library.kind != 'fullfilled') {
+            return <DataLoader<Library>
+                data={this.state.library}
+                onLoaded={data => this.setState(s => ({ ...s, library: data }))}
+                onRetry={() => this.setState(s => ({ ...s, library: Pending(getAllBooks) }))}
+            />
+        }
 
-            <h2>{this.state.library.data.length} books found</h2>
-
-            <ul className="book-list">
-                {
-                    this.state.library.data.map(book =>
-                        <li key={book.id}>
-                            <h2>{book.title} </h2>
-                            <p className="author">Author: {book.author}</p>
-                            <p className="genre">Genre: {book.genre}</p>
-                            <p className="published">Published in: {book.year}</p>
-                        </li>
-                    )
-                }
-            </ul>
-        </div>
+        return <HomePage 
+        library={this.state.library.data}
+        search={this.state.search}
+        selectedFilter={this.state.selectedFilter}
+        onRefresh={() => this.setState(s => ({...s, library: Pending(getAllBooks)}))}
+        onSearch={() => {}}
+        />
     }
 }
